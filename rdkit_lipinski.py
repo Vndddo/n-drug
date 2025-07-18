@@ -1,41 +1,36 @@
-#STEP 1: Import libraries
+# Importing Libraries
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 import pandas as pd
-mol = Chem.MolFromSmiles("CCO")
-print(mol)
 
-#STEP 2: Define datasets
-data = {
-    'name' : ['Aspirin', 'Caffeine', 'Amphetamine', 'Ibuprofen'],
-    'smiles': [
-        'CC(=O)OC1=CC=CC=C1C(=O)O',  # Aspirin
-        'CN1C=NC2=C1C(=O)N(C(=O)N2C)',  # Caffeine
-        'CC(CC1=CC=CC=C1)N',  # Amphetamine
-        'CC(C)CC1=CC=C(C=C1)C(C)C(=O)O'  # Ibuprofen
-        ]
-    }
+# Loading Source File
+input_file = "compound_info_output.xlsx"
+df = pd.read_excel(input_file)
 
-df = pd.DataFrame(data) #turn data into DataFrame table via panda
-
-#STEP 3: Lipinski calculation function
+# Lipinski Calculation Function
 def calculate_lipinski(smiles):
-    mol = Chem.MolFromSmiles(smiles)  # Convert SMILES to molecule object
-    mw = Descriptors.MolWt(mol)       # Molecular weight
-    logp = Descriptors.MolLogP(mol)   # LogP: fat solubility
-    hbd = Descriptors.NumHDonors(mol) # Number of H-bond donors
-    hba = Descriptors.NumHAcceptors(mol) # Number of H-bond acceptors
-    violations = sum([mw > 500, logp > 5, hbd > 5, hba > 10])
-    return pd.Series([mw, logp, hbd, hba, violations])
+    try:
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            raise ValueError("Invalid SMILES")
+        mw = Descriptors.MolWt(mol)
+        logp = Descriptors.MolLogP(mol)
+        hbd = Descriptors.NumHDonors(mol)
+        hba = Descriptors.NumHAcceptors(mol)
+        violations = sum([mw > 500, logp > 5, hbd > 5, hba > 10])
+        return pd.Series([mw, logp, hbd, hba, violations])
+    except Exception as e:
+        print(f"Error processing SMILES: {smiles} | Error: {e}")
+        return pd.Series([None, None, None, None, None])
 
-#STEP 4: Function application to data
-df[['MolWt', 'LogP', 'HBD', 'HBA', 'Violations']] = df['smiles'].apply(calculate_lipinski)
+# Apply function to SMILES column
+df[['MolWt', 'LogP', 'HBD', 'HBA', 'Violations']] = df['SMILES'].apply(calculate_lipinski)
 
-#STEP 5: Drug-like compounds flag
+# Flag drug-likeness
 df['Drug-like'] = df['Violations'] <= 1
 
-#STEP 6: Print results
-print(df)
+# Save results to Excel
+output_file = "drug_likeness_results.xlsx"
+df.to_excel(output_file, index=False)
 
-#STEP 7: Saving results
-df.to_csv("drug_likeness_results.csv", index=False)
+print(f"Analysis completed. Results saved to {output_file}")
